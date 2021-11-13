@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// TODO Add cleanup process, to delete all images that are not in the sqlite or that are expired
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {

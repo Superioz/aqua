@@ -2,14 +2,12 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/superioz/aqua/internal/config"
+	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
-	"io"
 	"k8s.io/klog"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -28,6 +26,7 @@ var (
 	}
 
 	authConfig *config.AuthConfig
+	metaDb     storage.FileMetaDatabase
 )
 
 func Initialize() {
@@ -43,6 +42,9 @@ func Initialize() {
 		klog.Infof("Loaded %d valid tokens", len(ac.ValidTokens))
 	}
 	authConfig = ac
+
+	metaDbFilePath := env.StringOrDefault("FILE_META_DB_FILE", "./files.db")
+	metaDb = storage.NewSqliteFileMetaDatabase(metaDbFilePath)
 }
 
 func Upload(c *gin.Context) {
@@ -85,6 +87,11 @@ func Upload(c *gin.Context) {
 		return
 	}
 
+	if !authConfig.CanUpload(token, ct) {
+		c.JSON(http.StatusForbidden, gin.H{"msg": "you can not upload a file with this content type"})
+		return
+	}
+
 	of, err := file.Open()
 	if err != nil {
 		klog.Error(err)
@@ -93,54 +100,17 @@ func Upload(c *gin.Context) {
 	}
 	defer of.Close()
 
-	name, err := getRandomFileName(8)
+	sf, err := storage.StoreFile(of, storage.ExpireNever)
 	if err != nil {
 		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not generate id of file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
 		return
 	}
 
-	path := env.StringOrDefault("FILE_STORAGE_PATH", "/var/lib/aqua/")
+	// write to meta database
+	metaDb.WriteFile(sf)
 
-	err = os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not create file directory"})
-		return
-	}
-
-	f, err := os.Create(name)
-	if err != nil {
-		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not create file"})
-		return
-	}
-	defer f.Close()
-
-	// use io.Copy so that we don't have to load all the image into the memory.
-	// they get copied in smaller 32kb chunks.
-	_, err = io.Copy(f, of)
-	if err != nil {
-		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not copy content to file"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"id": name})
-}
-
-func getRandomFileName(size int) (string, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return "", err
-	}
-
-	// strip '-' from uuid
-	str := strings.ReplaceAll(id.String(), "-", "")
-	if size >= len(str) {
-		return str, nil
-	}
-	return str[:size], nil
+	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
 }
 
 // workaround for file Content-Type headers

@@ -1,2 +1,5 @@
 validTokens:
 - token: 71a4c056ab9b0fb965063344cd6616bc
+  fileTypes:
+  - image/png
+  - image/jpeg

@@ -12,6 +12,10 @@ type AuthConfig struct {
 
 type TokenConfig struct {
 	Token string
+
+	// All file types that one can upload via this token.
+	// If empty, all file types are allowed.
+	ValidFileTypes []string `yaml:"fileTypes"`
 }
 
 func NewEmptyAuthConfig() *AuthConfig {
@@ -47,6 +51,24 @@ func (ac *AuthConfig) HasToken(token string) bool {
 	for _, validToken := range ac.ValidTokens {
 		if validToken.Token == token {
 			return true
+		}
+	}
+	return false
+}
+
+func (ac *AuthConfig) CanUpload(token string, filetype string) bool {
+	for _, validToken := range ac.ValidTokens {
+		if validToken.Token == token {
+			ft := validToken.ValidFileTypes
+			if len(ft) == 0 {
+				return true
+			}
+
+			for _, s := range ft {
+				if s == filetype {
+					return true
+				}
+			}
 		}
 	}
 	return false
