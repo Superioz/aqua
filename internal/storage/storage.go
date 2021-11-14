@@ -66,7 +66,8 @@ func (fs *FileStorage) Cleanup() error {
 			continue
 		}
 
-		klog.Infof("Delete file: %s", file)
+		klog.Infof("Delete file %s (expired at %s)", file.Id, time.Unix(file.ExpiresAt, 0).String())
+
 		// delete this file
 		err = fs.fileSystem.DeleteFile(file.Id)
 		if err != nil {
@@ -93,15 +94,15 @@ func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFi
 		return nil, errors.New("could not save file to system")
 	}
 
-	t := time.Now()
-	expAt := t.Add(time.Duration(expiration)).Unix()
+	currentTime := time.Now().Unix()
+	expAt := currentTime + expiration
 	if expiration == ExpireNever {
 		expAt = ExpireNever
 	}
 
 	sf := &StoredFile{
 		Id:         name,
-		UploadedAt: t.Unix(),
+		UploadedAt: currentTime,
 		ExpiresAt:  expAt,
 	}
 

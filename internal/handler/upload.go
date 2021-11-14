@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/storage"
@@ -24,7 +25,13 @@ var (
 		"text/csv",
 		"text/plain",
 	}
+
+	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
 )
+
+type RequestMetadata struct {
+	Expiration int64 `json:"expiration"`
+}
 
 type UploadHandler struct {
 	AuthConfig  *config.AuthConfig
@@ -103,13 +110,29 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	}
 	defer of.Close()
 
-	sf, err := u.FileStorage.StoreFile(of, storage.ExpireNever)
+	metadata := getMetadata(form)
+	sf, err := u.FileStorage.StoreFile(of, metadata.Expiration)
 	if err != nil {
 		klog.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
+}
+
+func getMetadata(form *multipart.Form) *RequestMetadata {
+	metaRawList := form.Value["metadata"]
+	if len(metaRawList) == 0 {
+		return emptyRequestMetadata
+	}
+	metaRaw := metaRawList[0]
+
+	var metadata *RequestMetadata
+	err := json.Unmarshal([]byte(metaRaw), &metadata)
+	if err != nil {
+		return emptyRequestMetadata
+	}
+	return metadata
 }
 
 // workaround for file Content-Type headers
