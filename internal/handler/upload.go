@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
@@ -11,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
-	"time"
 )
 
 const (
@@ -30,9 +27,8 @@ var (
 )
 
 type UploadHandler struct {
-	authConfig  *config.AuthConfig
-	fileMetaDb  storage.FileMetaDatabase
-	fileStorage storage.FileStorage
+	AuthConfig  *config.AuthConfig
+	FileStorage *storage.FileStorage
 }
 
 func NewUploadHandler() *UploadHandler {
@@ -44,17 +40,13 @@ func NewUploadHandler() *UploadHandler {
 		// this is not good, but the system still works.
 		// nobody can upload a file though.
 		klog.Warningf("Could not open auth config at %s: %v", path, err)
-		handler.authConfig = config.NewEmptyAuthConfig()
+		handler.AuthConfig = config.NewEmptyAuthConfig()
 	} else {
 		klog.Infof("Loaded %d valid tokens", len(ac.ValidTokens))
-		handler.authConfig = ac
+		handler.AuthConfig = ac
 	}
 
-	metaDbFilePath := env.StringOrDefault("FILE_META_DB_FILE", "./files.db")
-	handler.fileMetaDb = storage.NewSqliteFileMetaDatabase(metaDbFilePath)
-
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", "/var/lib/aqua/")
-	handler.fileStorage = storage.NewLocalFileStorage(fileStoragePath)
+	handler.FileStorage = storage.NewFileStorage()
 	return handler
 }
 
@@ -64,7 +56,7 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	token := getToken(c)
 
 	klog.Infof("Checking authentication for token=%s", token)
-	if !u.authConfig.HasToken(token) {
+	if !u.AuthConfig.HasToken(token) {
 		c.JSON(http.StatusUnauthorized, gin.H{"msg": "the token is not valid"})
 		return
 	}
@@ -98,7 +90,7 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	if !u.authConfig.CanUpload(token, ct) {
+	if !u.AuthConfig.CanUpload(token, ct) {
 		c.JSON(http.StatusForbidden, gin.H{"msg": "you can not upload a file with this content type"})
 		return
 	}
@@ -111,28 +103,11 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	}
 	defer of.Close()
 
-	name, err := getRandomFileName(env.IntOrDefault("FILE_NAME_LENGTH", 8))
+	sf, err := u.FileStorage.StoreFile(of, storage.ExpireNever)
 	if err != nil {
 		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not generate random name"})
-		return
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
 	}
-
-	_, err = u.fileStorage.CreateFile(of, name)
-	if err != nil {
-		klog.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not save file"})
-	}
-
-	t := time.Now()
-	sf := &storage.StoredFile{
-		Id:         name,
-		UploadedAt: t.Unix(),
-		ExpiresAt:  t.Add(time.Duration(storage.ExpireNever)).Unix(),
-	}
-
-	// write to meta database
-	u.fileMetaDb.WriteFile(sf)
 
 	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
 }
@@ -169,25 +144,4 @@ func getToken(c *gin.Context) string {
 
 	spl := strings.Split(bearerToken, "Bearer ")
 	return spl[1]
-}
-
-// getRandomFileName returns a random string with a fixed size
-// that is generated from an uuid.
-// It also checks, that no file with that name already exists,
-// if that is the case, it generates a new one.
-func getRandomFileName(size int) (string, error) {
-	if size <= 1 {
-		return "", errors.New("size must be greater than 1")
-	}
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return "", err
-	}
-
-	// strip '-' from uuid
-	str := strings.ReplaceAll(id.String(), "-", "")
-	if size >= len(str) {
-		return str, nil
-	}
-	return str[:size], nil
 }

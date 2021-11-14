@@ -6,17 +6,17 @@ import (
 	"os"
 )
 
-type FileStorage interface {
+type FileSystem interface {
 	CreateFile(mf multipart.File, name string) (bool, error)
 	DeleteFile(id string) error
 	GetFile(id string) (*os.File, error)
 }
 
-type LocalFileStorage struct {
+type LocalFileSystem struct {
 	FolderPath string
 }
 
-func (l LocalFileStorage) CreateFile(mf multipart.File, name string) (bool, error) {
+func (l LocalFileSystem) CreateFile(mf multipart.File, name string) (bool, error) {
 	err := os.MkdirAll(l.FolderPath, os.ModePerm)
 	if err != nil {
 		return false, err
@@ -37,14 +37,14 @@ func (l LocalFileStorage) CreateFile(mf multipart.File, name string) (bool, erro
 	return true, nil
 }
 
-func (l LocalFileStorage) DeleteFile(id string) error {
+func (l LocalFileSystem) DeleteFile(id string) error {
+	return os.Remove(l.FolderPath + id)
+}
+
+func (l LocalFileSystem) GetFile(id string) (*os.File, error) {
 	panic("implement me")
 }
 
-func (l LocalFileStorage) GetFile(id string) (*os.File, error) {
-	panic("implement me")
-}
-
-func NewLocalFileStorage(path string) *LocalFileStorage {
-	return &LocalFileStorage{FolderPath: path}
+func NewLocalFileStorage(path string) *LocalFileSystem {
+	return &LocalFileSystem{FolderPath: path}
 }

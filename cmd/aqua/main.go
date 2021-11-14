@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-// TODO Add cleanup process, to delete all images that are not in the sqlite or that are expired
+// TODO when uploading, if expiration given, change expiration
+// TODO Schedule cleanup process for every x minutes and on startup
 
 func main() {
 	err := godotenv.Load()
@@ -27,6 +28,10 @@ func main() {
 	// handler for receiving uploaded files
 	uh := handler.NewUploadHandler()
 	r.POST("/upload", uh.Upload)
+	err = uh.FileStorage.Cleanup()
+	if err != nil {
+		klog.Errorln(err)
+	}
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "UP"})

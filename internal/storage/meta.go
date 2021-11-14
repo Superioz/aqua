@@ -64,8 +64,20 @@ func (s *SqliteFileMetaDatabase) WriteFile(sf *StoredFile) error {
 }
 
 func (s *SqliteFileMetaDatabase) DeleteFile(id string) error {
+	db, err := sql.Open("sqlite3", s.DbFilePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
 
-	return nil
+	stmt, err := db.Prepare(`delete from files where id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	return err
 }
 
 func (s *SqliteFileMetaDatabase) GetFile(id string) (*StoredFile, error) {
@@ -150,7 +162,7 @@ func (s *SqliteFileMetaDatabase) GetAllExpired() ([]*StoredFile, error) {
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare(`select * from files where expired_at < ?`)
+	stmt, err := db.Prepare(`select * from files where expires_at > 0 and expires_at <= ?`)
 	if err != nil {
 		return nil, err
 	}
