@@ -10,11 +10,12 @@ import (
 )
 
 // TODO Add cleanup process, to delete all images that are not in the sqlite or that are expired
+// TODO make file storage (not metadata) an adapter (AddFile, RemoveFile)
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		klog.Fatal("Error loading .env file")
+		klog.Warningln("Error loading .env file: %v", err)
 	}
 	klog.Infoln("Hello World!")
 
