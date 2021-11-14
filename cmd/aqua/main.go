@@ -10,7 +10,6 @@ import (
 )
 
 // TODO Add cleanup process, to delete all images that are not in the sqlite or that are expired
-// TODO make file storage (not metadata) an adapter (AddFile, RemoveFile)
 
 func main() {
 	err := godotenv.Load()
@@ -19,17 +18,15 @@ func main() {
 	}
 	klog.Infoln("Hello World!")
 
-	// init some stuff for the handler
-	// like config etc.
-	handler.Initialize()
-
 	r := gin.New()
 	r.Use(middleware.Logger(3 * time.Second))
 	// restrict to max 100mb
 	r.Use(middleware.RestrictBodySize(100 * handler.SizeMegaByte))
 	r.Use(gin.Recovery())
 
-	r.POST("/upload", handler.Upload)
+	// handler for receiving uploaded files
+	uh := handler.NewUploadHandler()
+	r.POST("/upload", uh.Upload)
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "UP"})
