@@ -1,6 +1,6 @@
 # aqua
 
-![aqua_banner](./.github/assets/aqua_banner.png)
+<img src="./.github/assets/aqua_banner.png" height="160" />
 
 ---
 
