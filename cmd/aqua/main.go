@@ -5,8 +5,8 @@ import (
 	"github.com/go-co-op/gocron"
 	"github.com/joho/godotenv"
 	"github.com/superioz/aqua/internal/handler"
-	"github.com/superioz/aqua/internal/middleware"
 	"github.com/superioz/aqua/pkg/env"
+	"github.com/superioz/aqua/pkg/middleware"
 	"k8s.io/klog"
 	"time"
 )
