@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/superioz/aqua/internal/aqcli"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -18,6 +19,6 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		panic(err)
+		fmt.Printf("%v", err)
 	}
 }

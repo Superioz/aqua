@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/storage"
@@ -116,6 +117,13 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 		klog.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
 	}
+
+	expiresIn := "never"
+	if metadata.Expiration >= 0 {
+		expiresIn = fmt.Sprintf("%ds", metadata.Expiration)
+	}
+
+	klog.Infof("Stored file %s (expiresIn: %s)", sf.Id, expiresIn)
 
 	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
 }
