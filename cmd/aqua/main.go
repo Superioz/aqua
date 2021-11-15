@@ -11,10 +11,13 @@ import (
 	"time"
 )
 
+// TODO add github workflows for linting and building docker image
+// TODO how can we add binaries to github releases? we need it for the cli
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		klog.Warningln("Error loading .env file: %v", err)
+		klog.Warningf("Error loading .env file: %v", err)
 	}
 	klog.Infoln("Hello World!")
 
