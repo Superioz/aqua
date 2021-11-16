@@ -47,7 +47,7 @@ For examplary usage of the environment variables, have a look at the `.env.dist`
 | `FILE_META_DB_PATH` | Path to the directory, where the sqlite database for file metadata should be stored. Recommended to not be the same folder as `FILE_STORAGE_PATH` to prevent overlapping. |
 | `FILE_EXPIRATION_CYCLE` | Determines the interval of the expiration cycle. `5` means that every 5 seconds the files will be checked for expiration.  |
 
-## Tokens (`auth.yml`)
+## Tokens
 
 Inside the `auth.yml` file you can configure which tokens are valid and for what file types they can be used for. An example file could look like this:
 
@@ -64,13 +64,15 @@ e.g. `my_favorite_password` or something like `X_!]6rk[wC]%7aN^fB>#PzuFd{L,ugsq`
 
 But if you want to keep it simple, you can use the `aq` CLI tool to generate it directly like so:
 
-```shell
-aq generate --length 32
+```console
+user@host:~$ aq generate --length 32
+L1dLUm12!Lb%7Nz1ep4h5Vo+Fn531&EU
 ```
 
 After adding the token to the list you may want to restrict what files can be uploaded with that token. That can be done with the `fileTypes` field. If you leave it empty, all file
-types are possible, otherwise only the configured ones. Normally we would accept every possible MIME type, but as they behave completely different sometimes and we want to keep it
-simple, we only support the following ones:
+types are possible, otherwise only the configured ones.
+
+Normally we would accept every possible MIME type, but as they behave completely different sometimes and we want to keep it simple, we **only support** the following ones:
 
 ```
 application/pdf
@@ -82,3 +84,11 @@ text/plain
 ```
 
 # CLI Tool
+
+- download binary for the cli
+- possibly rename and put it somewhere in $PATH
+- use it to upload a file
+
+```console
+user@host:~$ aq upload --host https://my-domain.com:8765 --token my_token local_file.png
+```
