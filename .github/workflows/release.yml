@@ -13,12 +13,12 @@ jobs:
         env:
           GOOS: windows
           GOARCH: amd64
-        run: go build CGO_ENABLED=0 -o aq-$GOOS-$GOARCH ./cmd/aqcli/
+        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH ./cmd/aqcli/
       - name: Build for linux/amd64
         env:
           GOOS: linux
           GOARCH: amd64
-        run: go build CGO_ENABLED=0 -o aq-$GOOS-$GOARCH ./cmd/aqcli/
+        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH ./cmd/aqcli/
       - name: Upload the artifacts
         uses: skx/github-action-publish-binaries@master
         env:
