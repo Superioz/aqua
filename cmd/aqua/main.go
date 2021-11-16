@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-// TODO add github workflows for linting and building docker image
 // TODO how can we add binaries to github releases? we need it for the cli
 
 func main() {
@@ -33,12 +32,15 @@ func main() {
 
 	// scheduler to do the cleanup every x minutes
 	s := gocron.NewScheduler(time.UTC)
-	s.Every(env.IntOrDefault("FILE_EXPIRATION_CYCLE", 15)).Minutes().StartImmediately().Do(func() {
+	_, err = s.Every(env.IntOrDefault("FILE_EXPIRATION_CYCLE", 15)).Minutes().StartImmediately().Do(func() {
 		err = uh.FileStorage.Cleanup()
 		if err != nil {
 			klog.Errorln(err)
 		}
 	})
+	if err != nil {
+		klog.Fatalf("could not start cleanup scheduler: %v", err)
+	}
 	s.StartAsync()
 
 	r.GET("/healthz", func(c *gin.Context) {

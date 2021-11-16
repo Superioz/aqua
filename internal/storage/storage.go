@@ -75,12 +75,12 @@ func (fs *FileStorage) Cleanup() error {
 		// delete this file
 		err = fs.fileSystem.DeleteFile(file.Id)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Could not delete file with id=%s: %v", file.Id, err))
+			return fmt.Errorf("could not delete file with id=%s: %v", file.Id, err)
 		}
 
 		err = fs.fileMetaDb.DeleteFile(file.Id)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Could not delete file with id=%s: %v", file.Id, err))
+			return fmt.Errorf("could not delete file with id=%s: %v", file.Id, err)
 		}
 	}
 	return nil
@@ -111,7 +111,10 @@ func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFi
 	}
 
 	// write to meta database
-	fs.fileMetaDb.WriteFile(sf)
+	err = fs.fileMetaDb.WriteFile(sf)
+	if err != nil {
+		return nil, err
+	}
 
 	return sf, nil
 }

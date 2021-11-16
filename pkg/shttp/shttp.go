@@ -97,7 +97,10 @@ func GetFileType(file *os.File) (string, error) {
 	}
 
 	head := make([]byte, 261)
-	f.Read(head)
+	_, err = f.Read(head)
+	if err != nil {
+		return "", err
+	}
 
 	kind, err := filetype.Match(head)
 	if err != nil {

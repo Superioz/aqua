@@ -1,0 +1,27 @@
+name: Docker
+on:
+  release:
+    types: [created]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: docker/setup-buildx-action@v1
+      - name: get version
+        run: |
+          VER=$(cat VERSION)
+          echo "VERSION=$VER" >> $GITHUB_ENV
+      - name: login
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build and push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: ghcr.io/superioz/aqua:${{ env.VERSION }},ghcr.io/superioz/aqua:latest
+          build-args: |
+            version=${{ env.VERSION }}
