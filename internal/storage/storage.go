@@ -36,10 +36,14 @@ type FileStorage struct {
 }
 
 func NewFileStorage() *FileStorage {
-	metaDbFilePath := env.StringOrDefault("FILE_META_DB_FILE", "./files.db")
+	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", "/var/lib/aqua/")
 	fileMetaDb := NewSqliteFileMetaDatabase(metaDbFilePath)
+	err := fileMetaDb.Connect()
+	if err != nil {
+		klog.Errorf("Could not connect to file meta db: %v", err)
+	}
 
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", "/var/lib/aqua/")
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", "/var/lib/aqua/files/")
 	fileSystem := NewLocalFileStorage(fileStoragePath)
 
 	return &FileStorage{

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"os"
 	"time"
 )
 
@@ -21,16 +22,37 @@ type FileMetaDatabase interface {
 }
 
 type SqliteFileMetaDatabase struct {
-	DbFilePath string
+	DbFolderPath string
+	DbFilePath   string
 }
 
-func NewSqliteFileMetaDatabase(filePath string) *SqliteFileMetaDatabase {
+func NewSqliteFileMetaDatabase(folderPath string) *SqliteFileMetaDatabase {
 	return &SqliteFileMetaDatabase{
-		DbFilePath: filePath,
+		DbFolderPath: folderPath,
+		DbFilePath:   folderPath + "files.db",
 	}
 }
 
 func (s *SqliteFileMetaDatabase) Connect() error {
+	err := os.MkdirAll(s.DbFolderPath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	db, err := sql.Open("sqlite", s.DbFilePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`create table if not exists files (
+		id text not null primary key, 
+		uploaded_at integer,
+		expires_at integer
+	);`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -40,11 +62,6 @@ func (s *SqliteFileMetaDatabase) WriteFile(sf *StoredFile) error {
 		return err
 	}
 	defer db.Close()
-
-	err = prepareDb(db)
-	if err != nil {
-		return err
-	}
 
 	stmt, err := db.Prepare(`insert into files(id, uploaded_at, expires_at) values(?, ?, ?)`)
 	if err != nil {
@@ -66,11 +83,6 @@ func (s *SqliteFileMetaDatabase) DeleteFile(id string) error {
 	}
 	defer db.Close()
 
-	err = prepareDb(db)
-	if err != nil {
-		return err
-	}
-
 	stmt, err := db.Prepare(`delete from files where id = ?`)
 	if err != nil {
 		return err
@@ -87,11 +99,6 @@ func (s *SqliteFileMetaDatabase) GetFile(id string) (*StoredFile, error) {
 		return nil, err
 	}
 	defer db.Close()
-
-	err = prepareDb(db)
-	if err != nil {
-		return nil, err
-	}
 
 	stmt, err := db.Prepare(`select * from files where id = ?`)
 	if err != nil {
@@ -131,11 +138,6 @@ func (s *SqliteFileMetaDatabase) GetAllFiles() ([]*StoredFile, error) {
 	}
 	defer db.Close()
 
-	err = prepareDb(db)
-	if err != nil {
-		return nil, err
-	}
-
 	rows, err := db.Query(`select * from files`)
 	if err != nil {
 		return nil, err
@@ -173,11 +175,6 @@ func (s *SqliteFileMetaDatabase) GetAllExpired() ([]*StoredFile, error) {
 	}
 	defer db.Close()
 
-	err = prepareDb(db)
-	if err != nil {
-		return nil, err
-	}
-
 	stmt, err := db.Prepare(`select * from files where expires_at > 0 and expires_at <= ?`)
 	if err != nil {
 		return nil, err
@@ -213,16 +210,4 @@ func (s *SqliteFileMetaDatabase) GetAllExpired() ([]*StoredFile, error) {
 		return nil, err
 	}
 	return sfs, nil
-}
-
-func prepareDb(db *sql.DB) (err error) {
-	_, err = db.Exec(`create table if not exists files (
-		id text not null primary key, 
-		uploaded_at integer,
-		expires_at integer
-	);`)
-	if err != nil {
-		return
-	}
-	return nil
 }
