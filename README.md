@@ -13,21 +13,25 @@ It is the successor/rework of my previous project [lightf](https://github.com/Su
 
 There are as always multiple ways to install the server. The recommended way is to use Docker Compose or deploy it to Kubernetes, but we start with the manual way.
 
-## Manual
+## Manually
 
-- download the specific binary from the latest release
-- rename it however you want
-- create an auth.yml
-- do the rest of the configuration like described below (creating environment variables and such)
-- start the server and open port 8765 to the outside world from your server/machine
+This is only for those people, that are still living in the 90s or are not comfortable with a Docker installation.
+
+1. First download the specific binary from the [releases](https://github.com/Superioz/aqua/releases) and put it somewhere (e.g. with `wget` on Linux). Also, add execution permission
+   with `chmod +x aq-linux-amd64`.
+2. Do the configuration you want (e.g. setting environment variables and creating an `auth.yml`). See [Configuration](#configuration)
+3. Execute the downloaded binary and don't forget to open port `8765` on your machine/server.
+
+For further instructions like creating a service that can easily be started with `service aqua start`, please refer to other pages (there are a bunch that explain this) - I won't.
 
 ## Docker Compose
 
-- install docker and docker-compose on your machine
-- git clone the repository
-- edit the auth.yml (it has to be in the same directory as the docker-compose)
-- edit the .env.dist -> rename it to .env and edit it however you want (see Configuration)
-- `docker-compose up`
+Before following the steps, make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on the machine.
+
+1. Clone the repository to a directory of your liking with `git clone git@github.com:Superioz/aqua.git`
+2. Edit the `auth.yml` with your custom auth tokens and settings.
+3. Rename the `.env.dist` to `.env` and edit it as well.
+4. `docker-compose up` and you should see it up and running.
 
 ## Kubernetes
 
@@ -85,10 +89,17 @@ text/plain
 
 # CLI Tool
 
-- download binary for the cli
-- possibly rename and put it somewhere in $PATH
-- use it to upload a file
+Installing the CLI tool is fairly simple. Just download the respective binary from [releases](https://github.com/Superioz/aqua/releases), rename it and put it somewhere in your `$PATH`.
+Don't forget to add execution permissions `chmod +x aq`.
 
-```console
-user@host:~$ aq upload --host https://my-domain.com:8765 --token my_token local_file.png
+Now to upload a local file, you just have to execute the following command:
+
+```sh
+aq upload --host https://my-domain.com:8765 --token my_token local_file.png
+```
+
+To upload multiple files at the same time, just do it like this:
+
+```sh
+aq upload --host https://my-domain.com:8765 --token my_token local_file1.png local_file2.txt [...]
 ```
