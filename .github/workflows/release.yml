@@ -1,5 +1,7 @@
-on: [push]
-name: Upload binaries to release
+on:
+  release:
+    types: [created]
+name: Upload CLI binaries to release
 jobs:
   generate:
     name: Create release-artifacts
@@ -7,15 +9,19 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@master
-      - name: LS
-        run: "ls -ahl"
-#      - name: Generate the artifacts
-#        uses: skx/github-action-build@master
-#        with:
-#          builder: .github/build
-#      - name: Upload the artifacts
-#        uses: skx/github-action-publish-binaries@master
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          args: 'aq-*'
+      - name: Build for windows/amd64
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: go build CGO_ENABLED=0 -o aq-$GOOS-$GOARCH ./cmd/aqcli/
+      - name: Build for linux/amd64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: go build CGO_ENABLED=0 -o aq-$GOOS-$GOARCH ./cmd/aqcli/
+      - name: Upload the artifacts
+        uses: skx/github-action-publish-binaries@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: 'aq-*'

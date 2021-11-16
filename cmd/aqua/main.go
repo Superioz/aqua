@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// TODO how can we add binaries to github releases? we need it for the cli
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
