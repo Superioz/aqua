@@ -1,7 +1,7 @@
+name: Release binaries
 on:
   release:
     types: [created]
-name: Upload CLI binaries to release
 jobs:
   generate:
     name: Create release-artifacts
@@ -9,16 +9,26 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@master
-      - name: Build for windows/amd64
+      - name: Build CLI for windows/amd64
         env:
           GOOS: windows
           GOARCH: amd64
-        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH ./cmd/aqcli/
-      - name: Build for linux/amd64
+        run: CGO_ENABLED=0 go build -o aq-cli-$GOOS-$GOARCH.exe ./cmd/aqcli/
+      - name: Build CLI for linux/amd64
         env:
           GOOS: linux
           GOARCH: amd64
-        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH ./cmd/aqcli/
+        run: CGO_ENABLED=0 go build -o aq-cli-$GOOS-$GOARCH ./cmd/aqcli/
+      - name: Build server for windows/amd64
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH.exe ./cmd/aqua/
+      - name: Build server for linux/amd64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: CGO_ENABLED=0 go build -o aq-$GOOS-$GOARCH ./cmd/aqua/
       - name: Upload the artifacts
         uses: skx/github-action-publish-binaries@master
         env:
