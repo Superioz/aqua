@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -122,21 +123,17 @@ func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFi
 	return sf, nil
 }
 
+var escaper = strings.NewReplacer("9", "99", "-", "90", "_", "91")
+
 // getRandomFileName returns a random string with a fixed size
 // that is generated from an uuid.
-// It also checks, that no file with that name already exists,
-// if that is the case, it generates a new one.
 func getRandomFileName(size int) (string, error) {
-	if size <= 1 {
-		return "", errors.New("size must be greater than 1")
-	}
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
 	}
 
-	// strip '-' from uuid
-	str := strings.ReplaceAll(id.String(), "-", "")
+	str := escaper.Replace(base64.RawURLEncoding.EncodeToString([]byte(id.String())))
 	if size >= len(str) {
 		return str, nil
 	}

@@ -47,7 +47,7 @@ For examplary usage of the environment variables, have a look at the `.env.dist`
 | -------- | ----------- |
 | `AUTH_CONFIG_PATH` | Path to the `auth.yml` config file. |
 | `FILE_STORAGE_PATH` | Path to the directory, where the files should be stored. |
-| `FILE_NAME_LENGTH` | Length of the file names, that should be randomly generated. Should be long enough to make guessing impossible. |
+| `FILE_NAME_LENGTH` | Length of the file names, that should be randomly generated. Should be long enough to make guessing impossible. Cannot be longer than 24 characters. |
 | `FILE_META_DB_PATH` | Path to the directory, where the sqlite database for file metadata should be stored. Recommended to not be the same folder as `FILE_STORAGE_PATH` to prevent overlapping. |
 | `FILE_EXPIRATION_CYCLE` | Determines the interval of the expiration cycle. `5` means that every 5 seconds the files will be checked for expiration.  |
 
