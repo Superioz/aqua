@@ -63,7 +63,6 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	// empty string, if not given
 	token := getToken(c)
 
-	klog.Infof("Checking authentication for token=%s", token)
 	if !u.AuthConfig.HasToken(token) {
 		c.JSON(http.StatusUnauthorized, gin.H{"msg": "the token is not valid"})
 		return
@@ -92,7 +91,6 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	}
 
 	ct := getContentType(file)
-	klog.Infof("Detected content type: %s", ct)
 	if !isContentTypeValid(ct) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "content type of file is not valid"})
 		return
@@ -102,6 +100,9 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"msg": "you can not upload a file with this content type"})
 		return
 	}
+
+	mb := float64(c.Request.ContentLength) / 1024 / 1024
+	klog.Infof("Received valid upload request (type: %s, size: %.3fmb)", ct, mb)
 
 	of, err := file.Open()
 	if err != nil {

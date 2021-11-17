@@ -42,7 +42,7 @@ func (l LocalFileSystem) DeleteFile(id string) error {
 }
 
 func (l LocalFileSystem) GetFile(id string) (*os.File, error) {
-	panic("implement me")
+	return os.Open(l.FolderPath + id)
 }
 
 func NewLocalFileStorage(path string) *LocalFileSystem {

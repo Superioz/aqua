@@ -5,11 +5,16 @@ import (
 	"github.com/go-co-op/gocron"
 	"github.com/joho/godotenv"
 	"github.com/superioz/aqua/internal/handler"
+	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
 	"github.com/superioz/aqua/pkg/middleware"
 	"k8s.io/klog"
 	"time"
 )
+
+// TODO add documentation on Kubernetes
+// TODO add documentation of how to configure it with ShareX
+// TODO add structure diagram (api for uploading, file backend with metadata database, scheduler for expiration)
 
 func main() {
 	err := godotenv.Load()
@@ -41,8 +46,7 @@ func main() {
 	}
 	s.StartAsync()
 
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "UP"})
-	})
+	r.Static("/", env.StringOrDefault("FILE_STORAGE_PATH", storage.EnvDefaultFileStoragePath))
+	
 	_ = r.Run(":8765")
 }

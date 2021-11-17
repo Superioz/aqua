@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aqua-server
+spec:
+  selector:
+    matchLabels:
+      app: aqua
+  serviceName: "aqua"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: aqua
+    spec:
+      containers:
+      - name: aqua
+        image: ghcr.io/superioz/aqua:latest
+        ports:
+        - containerPort: 8765
+        env:
+        - name: AUTH_CONFIG_PATH
+          value: /etc/aqua/auth.yml
+        - name: FILE_STORAGE_PATH
+          value: /var/lib/aqua/
+        - name: FILE_NAME_LENGTH
+          value: 16
+        - name: FILE_META_DB_PATH
+          value: /var/lib/aqua/
+        - name: FILE_EXPIRATION_CYCLE
+          value: 5
+        volumeMounts:
+        - name: auth
+          mountPath: /etc/aqua/
+        - name: aqua-files
+      volumes:
+      - name: auth
+        configMap:
+          name: aqua-auth-config
+  volumeClaimTemplates:
+  - metadata:
+      name: aqua-files
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aqua-server
+  labels:
+    app: aqua
+spec:
+  selector:
+    app: aqua
+  ports:
+  - port: 8765

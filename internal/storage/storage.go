@@ -15,6 +15,9 @@ import (
 
 const (
 	ExpireNever = -1
+
+	EnvDefaultFileStoragePath = "/var/lib/aqua/files/"
+	EnvDefaultMetaDbPath      = "/var/lib/aqua/"
 )
 
 type StoredFile struct {
@@ -36,14 +39,14 @@ type FileStorage struct {
 }
 
 func NewFileStorage() *FileStorage {
-	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", "/var/lib/aqua/")
+	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", EnvDefaultMetaDbPath)
 	fileMetaDb := NewSqliteFileMetaDatabase(metaDbFilePath)
 	err := fileMetaDb.Connect()
 	if err != nil {
 		klog.Errorf("Could not connect to file meta db: %v", err)
 	}
 
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", "/var/lib/aqua/files/")
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", EnvDefaultFileStoragePath)
 	fileSystem := NewLocalFileStorage(fileStoragePath)
 
 	return &FileStorage{
