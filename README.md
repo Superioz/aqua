@@ -10,6 +10,8 @@ It is the successor/rework of my previous project [lightf](https://github.com/Su
 
 ![aqua_structure](./.github/assets/aqua_structure.png)
 
+The diagram above shows the general structure of the system. It is heavily based on abstracting interfaces for things like the file system or databases. There is also the *Storage Handler* which does all the management work in combining the different data sources (i.e. the physical files and their metadata) together. Every X (configurable!) minutes, the *Cleanup Scheduler* will command the Storage Handler to delete all expired files. This will also happen when the server starts.
+
 # Installation
 
 There are as always multiple ways to install the server. The recommended way is to use Docker Compose or deploy it to Kubernetes, but we start with the manual way.
