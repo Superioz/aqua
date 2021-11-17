@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-// TODO add structure diagram (api for uploading, file backend with metadata database, scheduler for expiration)
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
