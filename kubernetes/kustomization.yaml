@@ -3,5 +3,4 @@ kind: Kustomization
 namespace: aqua
 resources:
   - configmap.yaml
-  - deployment.yaml
-  - pvc.yaml
+  - statefulset.yaml

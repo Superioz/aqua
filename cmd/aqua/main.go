@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-// TODO add documentation on Kubernetes
-// TODO add documentation of how to configure it with ShareX
 // TODO add structure diagram (api for uploading, file backend with metadata database, scheduler for expiration)
 
 func main() {
@@ -47,6 +45,6 @@ func main() {
 	s.StartAsync()
 
 	r.Static("/", env.StringOrDefault("FILE_STORAGE_PATH", storage.EnvDefaultFileStoragePath))
-	
+
 	_ = r.Run(":8765")
 }

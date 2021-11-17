@@ -4,10 +4,11 @@
 
 ---
 
-**aqua** is a simple file uploading and sharing server for personal use. It is built to be easy to set up and host on your own server, for example to use it in combination with
-uploading tools like [ShareX](https://getsharex.com/).
+**aqua** is a simple file uploading and sharing server for personal use. It is built to be easy to set up and host on your own server, for example to use it in combination with uploading tools like [ShareX](https://getsharex.com/).
 
 It is the successor/rework of my previous project [lightf](https://github.com/Superioz/lightf), but this time without trying weird things out and building a complete product instead.
+
+![aqua_structure](./.github/assets/aqua_structure.png)
 
 # Installation
 
@@ -17,8 +18,7 @@ There are as always multiple ways to install the server. The recommended way is 
 
 This is only for those people, that are still living in the 90s or are not comfortable with a Docker installation.
 
-1. First download the specific binary from the [releases](https://github.com/Superioz/aqua/releases) and put it somewhere (e.g. with `wget` on Linux). Also, add execution permission
-   with `chmod +x aq-linux-amd64`.
+1. First download the specific binary from the [releases](https://github.com/Superioz/aqua/releases) and put it somewhere (e.g. with `wget` on Linux). Also, add execution permission with `chmod +x aq-linux-amd64`.
 2. Do the configuration you want (e.g. setting environment variables and creating an `auth.yml`). See [Configuration](#configuration)
 3. Execute the downloaded binary and don't forget to open port `8765` on your machine/server.
 
@@ -35,7 +35,13 @@ Before following the steps, make sure you have [Docker](https://docs.docker.com/
 
 ## Kubernetes
 
-TBD
+Make sure to have a Kubernetes cluster running somewhere (either on bare-metal or on GCP, AWS or some other provider) and check beforehand if pods inside the cluster can access `ghcr.io`, which is the GitHub Docker registry, which we need for our aqua server image. Of course, you also need `kubectl` to be installed on your system.
+
+1. Clone the repository or copy at least the `/kubernetes` folder into some directory
+2. Create a namespace called `aqua` with `kubectl create ns aqua`
+3. Apply the configuration files from the `/kubernetes` folder with `kubectl apply -k ./kubernetes/`. The `-k` flag is part of the newer versions of kubectl and allows [Kustomize](https://kustomize.io/) to work.
+4. Either create an Ingress or connect to the cluster via `kubectl port-forward svc/aqua-server 8765`
+5. Done. Finito. You should now be able to access the server.
 
 # Configuration
 
@@ -73,8 +79,7 @@ user@host:~$ aq generate --length 32
 L1dLUm12!Lb%7Nz1ep4h5Vo+Fn531&EU
 ```
 
-After adding the token to the list you may want to restrict what files can be uploaded with that token. That can be done with the `fileTypes` field. If you leave it empty, all file
-types are possible, otherwise only the configured ones.
+After adding the token to the list you may want to restrict what files can be uploaded with that token. That can be done with the `fileTypes` field. If you leave it empty, all file types are possible, otherwise only the configured ones.
 
 Normally we would accept every possible MIME type, but as they behave completely different sometimes and we want to keep it simple, we **only support** the following ones:
 
@@ -89,8 +94,7 @@ text/plain
 
 # CLI Tool
 
-Installing the CLI tool is fairly simple. Just download the respective binary from [releases](https://github.com/Superioz/aqua/releases), rename it and put it somewhere in your `$PATH`.
-Don't forget to add execution permissions `chmod +x aq`.
+Installing the CLI tool is fairly simple. Just download the respective binary from [releases](https://github.com/Superioz/aqua/releases), rename it and put it somewhere in your `$PATH`. Don't forget to add execution permissions `chmod +x aq`.
 
 Now to upload a local file, you just have to execute the following command:
 
@@ -103,3 +107,29 @@ To upload multiple files at the same time, just do it like this:
 ```sh
 aq upload --host https://my-domain.com:8765 --token my_token local_file1.png local_file2.txt [...]
 ```
+
+# ShareX
+
+As mentioned in the first section, you can easily configure ShareX to use aqua as server. For that you can copy the contents below to a file with the `.sxcu` ending like `aqua.sxcu`. Edit it now to your own needs, i.e. replacing the `your-domain.com` with the address of your installation and maybe adjusting the `expiration`, `-1` means that the files won't expire.
+
+After that you can import it to your custom upload goals in the ShareX UI.
+
+```json
+{
+  "Version": "12.4.0",
+  "DestinationType": "ImageUploader, TextUploader",
+  "RequestMethod": "POST",
+  "RequestURL": "https://your-domain.com/upload",
+  "Headers": {
+    "Authorization": "Bearer your-generated-token-here"
+  },
+  "Body": "MultipartFormData",
+  "Arguments": {
+    "metadata": "{ \"expiration\": 3600 }"
+  },
+  "FileFormName": "file",
+  "URL": "https://your-domain.com/$json:id$"
+}
+```
+
+More information can be found here: [ShareX Custom Uploader Guide](https://getsharex.com/docs/custom-uploader).

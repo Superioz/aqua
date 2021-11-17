@@ -24,15 +24,16 @@ spec:
         - name: FILE_STORAGE_PATH
           value: /var/lib/aqua/
         - name: FILE_NAME_LENGTH
-          value: 16
+          value: "8"
         - name: FILE_META_DB_PATH
           value: /var/lib/aqua/
         - name: FILE_EXPIRATION_CYCLE
-          value: 5
+          value: "5"
         volumeMounts:
         - name: auth
           mountPath: /etc/aqua/
         - name: aqua-files
+          mountPath: /var/lib/aqua
       volumes:
       - name: auth
         configMap:
