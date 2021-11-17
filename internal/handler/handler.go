@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
+	"github.com/superioz/aqua/internal/metrics"
 	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -18,13 +20,28 @@ const (
 )
 
 var (
+	// validMimeTypes is a whitelist of all supported
+	// mime types. Taken from https://developer.mozilla.org/
 	validMimeTypes = []string{
 		"application/pdf",
 		"application/json",
+		"application/gzip",
+		"application/vnd.rar",
+		"application/zip",
+		"application/x-7z-compressed",
 		"image/png",
 		"image/jpeg",
+		"image/gif",
+		"image/svg+xml",
 		"text/csv",
 		"text/plain",
+		"audio/mpeg",
+		"audio/ogg",
+		"audio/opus",
+		"audio/webm",
+		"video/mp4",
+		"video/mpeg",
+		"video/webm",
 	}
 
 	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
@@ -41,29 +58,33 @@ type UploadHandler struct {
 
 func NewUploadHandler() *UploadHandler {
 	handler := &UploadHandler{}
+	handler.ReloadAuthConfig()
 
+	handler.FileStorage = storage.NewFileStorage()
+	return handler
+}
+
+// ReloadAuthConfig reloads the auth.yml config from the local file system.
+func (h *UploadHandler) ReloadAuthConfig() {
 	path := env.StringOrDefault("AUTH_CONFIG_PATH", "/etc/aqua/auth.yml")
 	ac, err := config.FromLocalFile(path)
 	if err != nil {
 		// this is not good, but the system still works.
 		// nobody can upload a file though.
 		klog.Warningf("Could not open auth config at %s: %v", path, err)
-		handler.AuthConfig = config.NewEmptyAuthConfig()
+		h.AuthConfig = config.NewEmptyAuthConfig()
 	} else {
 		klog.Infof("Loaded %d valid tokens", len(ac.ValidTokens))
-		handler.AuthConfig = ac
+		h.AuthConfig = ac
 	}
-
-	handler.FileStorage = storage.NewFileStorage()
-	return handler
 }
 
-func (u *UploadHandler) Upload(c *gin.Context) {
+func (h *UploadHandler) Upload(c *gin.Context) {
 	// get token for auth
 	// empty string, if not given
 	token := getToken(c)
 
-	if !u.AuthConfig.HasToken(token) {
+	if !h.AuthConfig.HasToken(token) {
 		c.JSON(http.StatusUnauthorized, gin.H{"msg": "the token is not valid"})
 		return
 	}
@@ -96,7 +117,7 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	if !u.AuthConfig.CanUpload(token, ct) {
+	if !h.AuthConfig.CanUpload(token, ct) {
 		c.JSON(http.StatusForbidden, gin.H{"msg": "you can not upload a file with this content type"})
 		return
 	}
@@ -113,7 +134,7 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	defer of.Close()
 
 	metadata := getMetadata(form)
-	sf, err := u.FileStorage.StoreFile(of, metadata.Expiration)
+	sf, err := h.FileStorage.StoreFile(of, metadata.Expiration)
 	if err != nil {
 		klog.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
@@ -125,6 +146,7 @@ func (u *UploadHandler) Upload(c *gin.Context) {
 	}
 
 	klog.Infof("Stored file %s (expiresIn: %s)", sf.Id, expiresIn)
+	metrics.IncFilesUploaded()
 
 	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
 }
@@ -176,4 +198,24 @@ func getToken(c *gin.Context) string {
 
 	spl := strings.Split(bearerToken, "Bearer ")
 	return spl[1]
+}
+
+// HandleStaticFiles takes the files inside the configured file storage
+// path and serves them to the client.
+func HandleStaticFiles() gin.HandlerFunc {
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", storage.EnvDefaultFileStoragePath)
+
+	return func(c *gin.Context) {
+		fileName := c.Param("file")
+		fullPath := fileStoragePath + fileName
+
+		f, err := os.Open(fullPath)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		f.Close()
+
+		c.File(fullPath)
+	}
 }

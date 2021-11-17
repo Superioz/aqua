@@ -16,6 +16,8 @@ The diagram above shows the general structure of the system. It is heavily based
 
 There are as always multiple ways to install the server. The recommended way is to use Docker Compose or deploy it to Kubernetes, but we start with the manual way.
 
+Also, if you don't want the server to serve the files themselves, then you can disable it via the environment variable described in section [Configuration](#configuration). That could be the case if you already have a Nginx installed and want it to serve the files instead of aqua. That way, you have full customization options.
+
 ## Manually
 
 This is only for those people, that are still living in the 90s or are not comfortable with a Docker installation.
@@ -56,8 +58,11 @@ For examplary usage of the environment variables, have a look at the `.env.dist`
 | `AUTH_CONFIG_PATH` | Path to the `auth.yml` config file. |
 | `FILE_STORAGE_PATH` | Path to the directory, where the files should be stored. |
 | `FILE_NAME_LENGTH` | Length of the file names, that should be randomly generated. Should be long enough to make guessing impossible. Cannot be longer than 24 characters. |
+| `FILE_MAX_SIZE` | Maximum size for uploaded files in Megabytes. |
 | `FILE_META_DB_PATH` | Path to the directory, where the sqlite database for file metadata should be stored. Recommended to not be the same folder as `FILE_STORAGE_PATH` to prevent overlapping. |
 | `FILE_EXPIRATION_CYCLE` | Determines the interval of the expiration cycle. `5` means that every 5 seconds the files will be checked for expiration.  |
+| `METRICS_ENABLED` | Is normally set to true, but otherwise disables the Prometheus metrics publishing. |
+| `FILE_SERVING_ENABLED` | Defaults to true, when `false`, then the server won't serve the stored files. |
 
 ## Tokens
 
@@ -86,13 +91,39 @@ After adding the token to the list you may want to restrict what files can be up
 Normally we would accept every possible MIME type, but as they behave completely different sometimes and we want to keep it simple, we **only support** the following ones:
 
 ```
-application/pdf
+application/gzip
 application/json
-image/png
+application/pdf
+application/vnd.rar
+application/x-7z-compressed
+application/zip
+audio/mpeg
+audio/ogg
+audio/opus
+audio/webm
+image/gif
 image/jpeg
+image/png
+image/svg+xml
 text/csv
 text/plain
+video/mp4
+video/mpeg
+video/webm
 ```
+
+# Metrics
+
+We also expose Prometheus metrics to the port `:8766`, if the specific environment variable is not set to `false`. To scrape these metrics simply make sure that they are enabled and that you add them to the Prometheus scrape targets.
+
+If you are in a Kubernetes environment instead, a normal Prometheus deployment should automatically pick up the metrics, because we add specific annotations to the pods. If that does not work, or you are using the Prometheus Operator, you might want to have a look at `ServiceMonitor`s somewhere at the [Prometheus Operator documentation](https://github.com/prometheus-operator/prometheus-operator).
+
+Here is a list of all Prometheus metrics:
+
+| Metric | Description |
+| ------ | ----------- |
+| aqua_files_uploaded_total | Self explanatory |
+| aqua_files_expired_total | Self explanatory lol |
 
 # CLI Tool
 

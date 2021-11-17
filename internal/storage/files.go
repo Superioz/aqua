@@ -10,6 +10,7 @@ type FileSystem interface {
 	CreateFile(mf multipart.File, name string) (bool, error)
 	DeleteFile(id string) error
 	GetFile(id string) (*os.File, error)
+	Exists(id string) (bool, error)
 }
 
 type LocalFileSystem struct {
@@ -43,6 +44,14 @@ func (l LocalFileSystem) DeleteFile(id string) error {
 
 func (l LocalFileSystem) GetFile(id string) (*os.File, error) {
 	return os.Open(l.FolderPath + id)
+}
+
+func (l LocalFileSystem) Exists(id string) (bool, error) {
+	_, err := os.Stat(l.FolderPath + id)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
 }
 
 func NewLocalFileStorage(path string) *LocalFileSystem {

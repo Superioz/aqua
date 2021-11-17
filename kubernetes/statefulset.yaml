@@ -12,12 +12,19 @@ spec:
     metadata:
       labels:
         app: aqua
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8766"
     spec:
       containers:
       - name: aqua
         image: ghcr.io/superioz/aqua:latest
         ports:
-        - containerPort: 8765
+        - name: files
+          containerPort: 8765
+        - name: metrics
+          containerPort: 8766
         env:
         - name: AUTH_CONFIG_PATH
           value: /etc/aqua/auth.yml
@@ -57,4 +64,7 @@ spec:
   selector:
     app: aqua
   ports:
-  - port: 8765
+  - name: files
+    port: 8765
+  - name: metrics
+    port: 8766

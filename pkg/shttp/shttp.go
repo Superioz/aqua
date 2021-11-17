@@ -30,7 +30,7 @@ func Upload(client *http.Client, url string, values map[string]io.Reader, header
 
 		// Add an image file
 		if file, ok := r.(*os.File); ok {
-			mime, err := GetFileType(file)
+			mime, err := DetectFileType(file)
 			if err != nil {
 				return nil, err
 			}
@@ -88,9 +88,9 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-// GetFileType returns the MIME type of given file by reading
+// DetectFileType returns the MIME type of given file by reading
 // the file header of the file that is located on disk.
-func GetFileType(file *os.File) (string, error) {
+func DetectFileType(file *os.File) (string, error) {
 	f, err := os.Open(file.Name())
 	if err != nil {
 		return "", err

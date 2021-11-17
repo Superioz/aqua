@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/superioz/aqua/internal/metrics"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
 	"mime/multipart"
@@ -74,18 +75,27 @@ func (fs *FileStorage) Cleanup() error {
 			continue
 		}
 
-		klog.Infof("Delete file %s (expired at %s)", file.Id, time.Unix(file.ExpiresAt, 0).String())
-
-		// delete this file
-		err = fs.fileSystem.DeleteFile(file.Id)
+		// check if file doesn't exist anymore
+		ok, err := fs.fileSystem.Exists(file.Id)
 		if err != nil {
-			return fmt.Errorf("could not delete file with id=%s: %v", file.Id, err)
+			return fmt.Errorf("could not check if file exists with id=%s: %v", file.Id, err)
+		}
+		if ok {
+			// file exists
+			// delete this file
+			err = fs.fileSystem.DeleteFile(file.Id)
+			if err != nil {
+				return fmt.Errorf("could not delete file with id=%s: %v", file.Id, err)
+			}
 		}
 
 		err = fs.fileMetaDb.DeleteFile(file.Id)
 		if err != nil {
 			return fmt.Errorf("could not delete file with id=%s: %v", file.Id, err)
 		}
+
+		klog.Infof("Delete file %s (expired at %s)", file.Id, time.Unix(file.ExpiresAt, 0).String())
+		metrics.IncFilesExpired()
 	}
 	return nil
 }

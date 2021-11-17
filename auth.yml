@@ -3,3 +3,4 @@ validTokens:
   fileTypes:
   - image/png
   - image/jpeg
+  - video/mp4
