@@ -47,6 +47,12 @@ var (
 	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
 )
 
+type RequestFormFile struct {
+	File          multipart.File
+	ContentType   string
+	ContentLength int64
+}
+
 type RequestMetadata struct {
 	Expiration int64 `json:"expiration"`
 }
@@ -98,6 +104,10 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	files := form.File["file"]
 	if len(files) > 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "too many files in form"})
+		return
+	}
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "no file in form"})
 		return
 	}
 	file := files[0]
