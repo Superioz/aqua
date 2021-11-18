@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/superioz/aqua/internal/handler"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/pkg/shttp"
 	"github.com/urfave/cli/v2"
 	"io"
@@ -98,7 +98,7 @@ var UploadCommand = &cli.Command{
 				return fmt.Errorf("could not open file: %v", err)
 			}
 
-			id, err := doPostRequest(host, token, file, &handler.RequestMetadata{
+			id, err := doPostRequest(host, token, file, &request.RequestMetadata{
 				Expiration: int64(expires),
 			})
 			if err != nil {
@@ -118,7 +118,7 @@ type postResponse struct {
 	Id string
 }
 
-func doPostRequest(host string, token string, file *os.File, metadata *handler.RequestMetadata) (string, error) {
+func doPostRequest(host string, token string, file *os.File, metadata *request.RequestMetadata) (string, error) {
 	md, err := json.Marshal(metadata)
 	if err != nil {
 		return "", err
