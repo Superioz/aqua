@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/metrics"
 	"github.com/superioz/aqua/internal/mime"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
@@ -20,27 +20,13 @@ const (
 	SizeMegaByte = 1 << (10 * 2)
 )
 
-var (
-	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
-)
-
-// TODO when accessing: `/N2YwODUx.mp4` => `/N2YwODUx`
-
-// RequestFormFile is the metadata we get from the file
-// which is requested to be uploaded.
-type RequestFormFile struct {
-	File          multipart.File
-	ContentType   string
-	ContentLength int64
-}
-
-type RequestMetadata struct {
-	Expiration int64 `json:"expiration"`
-}
-
 type UploadHandler struct {
 	AuthConfig  *config.AuthConfig
 	FileStorage *storage.FileStorage
+
+	// excluded as per defined by the environment variable
+	// FILE_EXTENSIONS_EXCEPT
+	exclMimeTypes []string
 }
 
 func NewUploadHandler() *UploadHandler {
@@ -48,6 +34,7 @@ func NewUploadHandler() *UploadHandler {
 	handler.ReloadAuthConfig()
 
 	handler.FileStorage = storage.NewFileStorage()
+	handler.exclMimeTypes = env.ListOrDefault("FILE_EXTENSIONS_EXCLUDED", []string{"image/png", "image/jpeg"})
 	return handler
 }
 
@@ -124,8 +111,8 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	}
 	defer of.Close()
 
-	metadata := getMetadata(form)
-	rff := &RequestFormFile{
+	metadata := request.GetMetadata(form)
+	rff := &request.RequestFormFile{
 		File:          of,
 		ContentType:   ct,
 		ContentLength: c.Request.ContentLength,
@@ -145,22 +132,26 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	klog.Infof("Stored file %s (expiresIn: %s)", sf.Id, expiresIn)
 	metrics.IncFilesUploaded()
 
-	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
+	// add extension to file name if it is enabled and
+	// the extension is not excluded
+	storedName := sf.Id
+	if env.BoolOrDefault("FILE_EXTENSIONS_RESPONSE", true) && !h.isExtensionExcluded(sf.MimeType) {
+		storedName = fmt.Sprintf("%s.%s", storedName, mime.GetExtension(sf.MimeType))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"fileName": storedName})
 }
 
-func getMetadata(form *multipart.Form) *RequestMetadata {
-	metaRawList := form.Value["metadata"]
-	if len(metaRawList) == 0 {
-		return emptyRequestMetadata
+// isExtensionExcluded returns if the given mime type
+// should be excluded by the extension response rule, which states if
+// an extension should be appended to the file name when responding.
+func (h *UploadHandler) isExtensionExcluded(mimeType string) bool {
+	for _, exclMimeType := range h.exclMimeTypes {
+		if exclMimeType == mimeType {
+			return true
+		}
 	}
-	metaRaw := metaRawList[0]
-
-	var metadata *RequestMetadata
-	err := json.Unmarshal([]byte(metaRaw), &metadata)
-	if err != nil {
-		return emptyRequestMetadata
-	}
-	return metadata
+	return false
 }
 
 // workaround for file Content-Type headers
@@ -191,10 +182,17 @@ func getToken(c *gin.Context) string {
 // HandleStaticFiles takes the files inside the configured file storage
 // path and serves them to the client.
 func HandleStaticFiles() gin.HandlerFunc {
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", storage.EnvDefaultFileStoragePath)
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", config.EnvDefaultFileStoragePath)
 
 	return func(c *gin.Context) {
 		fileName := c.Param("file")
+
+		// the file name could contain the extension
+		// we split it and ship it.
+		if strings.Contains(fileName, ".") {
+			fileName = strings.Split(fileName, ".")[0]
+		}
+
 		fullPath := fileStoragePath + fileName
 
 		f, err := os.Open(fullPath)

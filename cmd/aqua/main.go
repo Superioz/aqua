@@ -15,7 +15,7 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		klog.Warningf("Error loading .env file: %v", err)
+		klog.Warningf("Could not load .env file: %v", err)
 	}
 	klog.Infoln("Hello World!")
 

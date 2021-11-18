@@ -82,8 +82,10 @@ For examplary usage of the environment variables, have a look at the `.env.dist`
 | `FILE_MAX_SIZE` | Maximum size for uploaded files in Megabytes. |
 | `FILE_META_DB_PATH` | Path to the directory, where the sqlite database for file metadata should be stored. Recommended to not be the same folder as `FILE_STORAGE_PATH` to prevent overlapping. |
 | `FILE_EXPIRATION_CYCLE` | Determines the interval of the expiration cycle. `5` means that every 5 seconds the files will be checked for expiration.  |
+| `FILE_SERVING_ENABLED` | Defaults to `true`, if `false`, the server won't serve the stored files. |
+| `FILE_EXTENSIONS_RESPONSE` | Defaults to `true`. if the file name returned will have its extension added to it. |
+| `FILE_EXTENSIONS_EXCLUDED` | Comma-seperated list of MIME types, that should be excluded from the extension response rule above. Defaults to `image/png,image/jpeg` |
 | `METRICS_ENABLED` | Is normally set to true, but otherwise disables the Prometheus metrics publishing. |
-| `FILE_SERVING_ENABLED` | Defaults to true, when `false`, then the server won't serve the stored files. |
 
 ## Tokens
 
@@ -182,7 +184,7 @@ After that you can import it to your custom upload goals in the ShareX UI.
     "metadata": "{ \"expiration\": 3600 }"
   },
   "FileFormName": "file",
-  "URL": "https://your-domain.com/$json:id$"
+  "URL": "https://your-domain.com/$json:fileName$"
 }
 ```
 

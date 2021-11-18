@@ -6,6 +6,13 @@ import (
 	"os"
 )
 
+const (
+	ExpireNever = -1
+
+	EnvDefaultFileStoragePath = "/var/lib/aqua/files/"
+	EnvDefaultMetaDbPath      = "/var/lib/aqua/"
+)
+
 type AuthConfig struct {
 	ValidTokens []*TokenConfig `yaml:"validTokens"`
 }

@@ -5,21 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/superioz/aqua/internal/handler"
+	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/metrics"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
-)
-
-const (
-	ExpireNever = -1
-
-	EnvDefaultFileStoragePath = "/var/lib/aqua/files/"
-	EnvDefaultMetaDbPath      = "/var/lib/aqua/"
 )
 
 type StoredFile struct {
@@ -43,14 +37,14 @@ type FileStorage struct {
 }
 
 func NewFileStorage() *FileStorage {
-	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", EnvDefaultMetaDbPath)
+	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", config.EnvDefaultMetaDbPath)
 	fileMetaDb := NewSqliteFileMetaDatabase(metaDbFilePath)
 	err := fileMetaDb.Connect()
 	if err != nil {
 		klog.Errorf("Could not connect to file meta db: %v", err)
 	}
 
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", EnvDefaultFileStoragePath)
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", config.EnvDefaultFileStoragePath)
 	fileSystem := NewLocalFileStorage(fileStoragePath)
 
 	return &FileStorage{
@@ -102,7 +96,7 @@ func (fs *FileStorage) Cleanup() error {
 	return nil
 }
 
-func (fs *FileStorage) StoreFile(rff *handler.RequestFormFile, expiration int64) (*StoredFile, error) {
+func (fs *FileStorage) StoreFile(rff *request.RequestFormFile, expiration int64) (*StoredFile, error) {
 	name, err := getRandomFileName(env.IntOrDefault("FILE_NAME_LENGTH", 8))
 	if err != nil {
 		return nil, errors.New("could not generate random name")
@@ -116,8 +110,8 @@ func (fs *FileStorage) StoreFile(rff *handler.RequestFormFile, expiration int64)
 
 	currentTime := time.Now().Unix()
 	expAt := currentTime + expiration
-	if expiration == ExpireNever {
-		expAt = ExpireNever
+	if expiration == config.ExpireNever {
+		expAt = config.ExpireNever
 	}
 
 	sf := &StoredFile{

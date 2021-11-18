@@ -28,7 +28,7 @@ var (
 
 // IsValid checks if given type is inside Types map
 func IsValid(t string) bool {
-	for _, mt := range Types {
+	for mt := range Types {
 		if mt == t {
 			return true
 		}
