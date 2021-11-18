@@ -28,14 +28,35 @@ This is only for those people, that are still living in the 90s or are not comfo
 
 For further instructions like creating a service that can easily be started with `service aqua start`, please refer to other pages (there are a bunch that explain this) - I won't.
 
-## Docker Compose
+## Docker (Compose)
 
-Before following the steps, make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on the machine.
+Before following the steps, make sure you have [Docker](https://docs.docker.com/get-docker/) installed. And if you want to use the preconfigured `docker-compose` file, install [Docker Compose](https://docs.docker.com/compose/install/) as well.
 
-1. Clone the repository to a directory of your liking with `git clone git@github.com:Superioz/aqua.git`
-2. Edit the `auth.yml` with your custom auth tokens and settings.
-3. Rename the `.env.dist` to `.env` and edit it as well.
-4. `docker-compose up` and you should see it up and running.
+Before you can start anything, you need the basis configuration:
+
+1. Download and edit the `auth.yml` with your custom auth tokens and settings.
+2. Download and rename the `.env.dist` to `.env` and edit it as well.
+
+For a quick start with Docker, you can use the following command:
+
+```sh
+docker run --rm                    \
+  --env-file ./.env                \
+  -v ./auth.yml:/etc/aqua/auth.yml \
+  -v ./files:/var/lib/aqua/        \
+  -p 8765:8765                     \
+  ghcr.io/superioz/aqua:latest
+```
+
+If you are on Windows, you might need to add `MSYS_NO_PATHCONV=1` so that the paths are correctly parsed. Also, to refer to the current directory, use `"$(pwd)"` instead of `./`, because that sometimes makes problems in Windows as well.
+
+For Docker Compose it's easier:
+
+```sh
+docker-compose up
+```
+
+If you want to build the image yourself instead, you can of course `git clone git@github.com:Superioz/aqua.git` and then execute `docker-compose up --build`.
 
 ## Kubernetes
 
@@ -61,8 +82,10 @@ For examplary usage of the environment variables, have a look at the `.env.dist`
 | `FILE_MAX_SIZE` | Maximum size for uploaded files in Megabytes. |
 | `FILE_META_DB_PATH` | Path to the directory, where the sqlite database for file metadata should be stored. Recommended to not be the same folder as `FILE_STORAGE_PATH` to prevent overlapping. |
 | `FILE_EXPIRATION_CYCLE` | Determines the interval of the expiration cycle. `5` means that every 5 seconds the files will be checked for expiration.  |
+| `FILE_SERVING_ENABLED` | Defaults to `true`, if `false`, the server won't serve the stored files. |
+| `FILE_EXTENSIONS_RESPONSE` | Defaults to `true`. if the file name returned will have its extension added to it. |
+| `FILE_EXTENSIONS_EXCLUDED` | Comma-seperated list of MIME types, that should be excluded from the extension response rule above. Defaults to `image/png,image/jpeg` |
 | `METRICS_ENABLED` | Is normally set to true, but otherwise disables the Prometheus metrics publishing. |
-| `FILE_SERVING_ENABLED` | Defaults to true, when `false`, then the server won't serve the stored files. |
 
 ## Tokens
 
@@ -161,7 +184,7 @@ After that you can import it to your custom upload goals in the ShareX UI.
     "metadata": "{ \"expiration\": 3600 }"
   },
   "FileFormName": "file",
-  "URL": "https://your-domain.com/$json:id$"
+  "URL": "https://your-domain.com/$json:fileName$"
 }
 ```
 

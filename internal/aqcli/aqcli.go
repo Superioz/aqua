@@ -4,16 +4,54 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/superioz/aqua/internal/handler"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/pkg/shttp"
 	"github.com/urfave/cli/v2"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 )
+
+var GenerateCommand = &cli.Command{
+	Name:    "generate",
+	Aliases: []string{"gen"},
+	Usage:   "Generates a possible auth token",
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:    "length",
+			Aliases: []string{"l"},
+			Value:   32,
+			Usage:   "Length of the token",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		size := c.Int("length")
+		if size <= 1 {
+			return cli.Exit("You cannot generate a token with this length. Must be >=2.", 1)
+		}
+
+		fmt.Println(generateToken(size))
+		return nil
+	},
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+?!#$&%"
+
+// generateToken generates a random `size` long string from
+// a predefined hexadecimal charset.
+func generateToken(size int) string {
+	rand.Seed(time.Now().UnixNano())
+
+	b := make([]byte, size)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
 
 var UploadCommand = &cli.Command{
 	Name:      "upload",
@@ -60,7 +98,7 @@ var UploadCommand = &cli.Command{
 				return fmt.Errorf("could not open file: %v", err)
 			}
 
-			id, err := doPostRequest(host, token, file, &handler.RequestMetadata{
+			id, err := doPostRequest(host, token, file, &request.RequestMetadata{
 				Expiration: int64(expires),
 			})
 			if err != nil {
@@ -80,7 +118,7 @@ type postResponse struct {
 	Id string
 }
 
-func doPostRequest(host string, token string, file *os.File, metadata *handler.RequestMetadata) (string, error) {
+func doPostRequest(host string, token string, file *os.File, metadata *request.RequestMetadata) (string, error) {
 	md, err := json.Marshal(metadata)
 	if err != nil {
 		return "", err

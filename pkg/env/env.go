@@ -3,6 +3,7 @@ package env
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 func String(name string) (string, bool) {
@@ -56,4 +57,17 @@ func BoolOrDefault(name string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+func ListOrDefault(name string, def []string) []string {
+	s, ok := String(name)
+	if !ok {
+		return def
+	}
+
+	spl := strings.Split(s, ",")
+	if len(spl) == 0 {
+		return def
+	}
+	return spl
 }

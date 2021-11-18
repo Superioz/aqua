@@ -5,27 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/metrics"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
-	"mime/multipart"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-const (
-	ExpireNever = -1
-
-	EnvDefaultFileStoragePath = "/var/lib/aqua/files/"
-	EnvDefaultMetaDbPath      = "/var/lib/aqua/"
-)
-
 type StoredFile struct {
 	Id         string
 	UploadedAt int64
 	ExpiresAt  int64
+	MimeType   string
+	Size       int64
 }
 
 func (sf *StoredFile) String() string {
@@ -41,14 +37,14 @@ type FileStorage struct {
 }
 
 func NewFileStorage() *FileStorage {
-	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", EnvDefaultMetaDbPath)
+	metaDbFilePath := env.StringOrDefault("FILE_META_DB_PATH", config.EnvDefaultMetaDbPath)
 	fileMetaDb := NewSqliteFileMetaDatabase(metaDbFilePath)
 	err := fileMetaDb.Connect()
 	if err != nil {
 		klog.Errorf("Could not connect to file meta db: %v", err)
 	}
 
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", EnvDefaultFileStoragePath)
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", config.EnvDefaultFileStoragePath)
 	fileSystem := NewLocalFileStorage(fileStoragePath)
 
 	return &FileStorage{
@@ -100,13 +96,13 @@ func (fs *FileStorage) Cleanup() error {
 	return nil
 }
 
-func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFile, error) {
+func (fs *FileStorage) StoreFile(rff *request.RequestFormFile, expiration int64) (*StoredFile, error) {
 	name, err := getRandomFileName(env.IntOrDefault("FILE_NAME_LENGTH", 8))
 	if err != nil {
 		return nil, errors.New("could not generate random name")
 	}
 
-	_, err = fs.fileSystem.CreateFile(of, name)
+	_, err = fs.fileSystem.CreateFile(rff.File, name)
 	if err != nil {
 		klog.Error(err)
 		return nil, errors.New("could not save file to system")
@@ -114,14 +110,16 @@ func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFi
 
 	currentTime := time.Now().Unix()
 	expAt := currentTime + expiration
-	if expiration == ExpireNever {
-		expAt = ExpireNever
+	if expiration == config.ExpireNever {
+		expAt = config.ExpireNever
 	}
 
 	sf := &StoredFile{
 		Id:         name,
 		UploadedAt: currentTime,
 		ExpiresAt:  expAt,
+		MimeType:   rff.ContentType,
+		Size:       rff.ContentLength,
 	}
 
 	// write to meta database

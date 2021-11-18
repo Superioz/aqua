@@ -1,11 +1,12 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/metrics"
+	"github.com/superioz/aqua/internal/mime"
+	"github.com/superioz/aqua/internal/request"
 	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
@@ -19,41 +20,13 @@ const (
 	SizeMegaByte = 1 << (10 * 2)
 )
 
-var (
-	// validMimeTypes is a whitelist of all supported
-	// mime types. Taken from https://developer.mozilla.org/
-	validMimeTypes = []string{
-		"application/pdf",
-		"application/json",
-		"application/gzip",
-		"application/vnd.rar",
-		"application/zip",
-		"application/x-7z-compressed",
-		"image/png",
-		"image/jpeg",
-		"image/gif",
-		"image/svg+xml",
-		"text/csv",
-		"text/plain",
-		"audio/mpeg",
-		"audio/ogg",
-		"audio/opus",
-		"audio/webm",
-		"video/mp4",
-		"video/mpeg",
-		"video/webm",
-	}
-
-	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
-)
-
-type RequestMetadata struct {
-	Expiration int64 `json:"expiration"`
-}
-
 type UploadHandler struct {
 	AuthConfig  *config.AuthConfig
 	FileStorage *storage.FileStorage
+
+	// excluded as per defined by the environment variable
+	// FILE_EXTENSIONS_EXCEPT
+	exclMimeTypes []string
 }
 
 func NewUploadHandler() *UploadHandler {
@@ -61,6 +34,7 @@ func NewUploadHandler() *UploadHandler {
 	handler.ReloadAuthConfig()
 
 	handler.FileStorage = storage.NewFileStorage()
+	handler.exclMimeTypes = env.ListOrDefault("FILE_EXTENSIONS_EXCLUDED", []string{"image/png", "image/jpeg"})
 	return handler
 }
 
@@ -100,19 +74,23 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "too many files in form"})
 		return
 	}
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "no file in form"})
+		return
+	}
 	file := files[0]
 
 	if c.Request.Header.Get("Content-Length") == "" {
 		c.Status(http.StatusLengthRequired)
 		return
 	}
-	if c.Request.ContentLength > 50*SizeMegaByte {
+	if c.Request.ContentLength > int64(env.IntOrDefault("FILE_MAX_SIZE", 100))*SizeMegaByte {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"msg": "content size must not exceed 50mb"})
 		return
 	}
 
 	ct := getContentType(file)
-	if !isContentTypeValid(ct) {
+	if !mime.IsValid(ct) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "content type of file is not valid"})
 		return
 	}
@@ -133,8 +111,14 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	}
 	defer of.Close()
 
-	metadata := getMetadata(form)
-	sf, err := h.FileStorage.StoreFile(of, metadata.Expiration)
+	metadata := request.GetMetadata(form)
+	rff := &request.RequestFormFile{
+		File:          of,
+		ContentType:   ct,
+		ContentLength: c.Request.ContentLength,
+	}
+
+	sf, err := h.FileStorage.StoreFile(rff, metadata.Expiration)
 	if err != nil {
 		klog.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
@@ -148,22 +132,26 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	klog.Infof("Stored file %s (expiresIn: %s)", sf.Id, expiresIn)
 	metrics.IncFilesUploaded()
 
-	c.JSON(http.StatusOK, gin.H{"id": sf.Id})
+	// add extension to file name if it is enabled and
+	// the extension is not excluded
+	storedName := sf.Id
+	if env.BoolOrDefault("FILE_EXTENSIONS_RESPONSE", true) && !h.isExtensionExcluded(sf.MimeType) {
+		storedName = fmt.Sprintf("%s.%s", storedName, mime.GetExtension(sf.MimeType))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"fileName": storedName})
 }
 
-func getMetadata(form *multipart.Form) *RequestMetadata {
-	metaRawList := form.Value["metadata"]
-	if len(metaRawList) == 0 {
-		return emptyRequestMetadata
+// isExtensionExcluded returns if the given mime type
+// should be excluded by the extension response rule, which states if
+// an extension should be appended to the file name when responding.
+func (h *UploadHandler) isExtensionExcluded(mimeType string) bool {
+	for _, exclMimeType := range h.exclMimeTypes {
+		if exclMimeType == mimeType {
+			return true
+		}
 	}
-	metaRaw := metaRawList[0]
-
-	var metadata *RequestMetadata
-	err := json.Unmarshal([]byte(metaRaw), &metadata)
-	if err != nil {
-		return emptyRequestMetadata
-	}
-	return metadata
+	return false
 }
 
 // workaround for file Content-Type headers
@@ -176,15 +164,6 @@ func getContentType(f *multipart.FileHeader) string {
 		c = strings.Split(c, ",")[0]
 	}
 	return c
-}
-
-func isContentTypeValid(ct string) bool {
-	for _, mt := range validMimeTypes {
-		if mt == ct {
-			return true
-		}
-	}
-	return false
 }
 
 func getToken(c *gin.Context) string {
@@ -203,10 +182,17 @@ func getToken(c *gin.Context) string {
 // HandleStaticFiles takes the files inside the configured file storage
 // path and serves them to the client.
 func HandleStaticFiles() gin.HandlerFunc {
-	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", storage.EnvDefaultFileStoragePath)
+	fileStoragePath := env.StringOrDefault("FILE_STORAGE_PATH", config.EnvDefaultFileStoragePath)
 
 	return func(c *gin.Context) {
 		fileName := c.Param("file")
+
+		// the file name could contain the extension
+		// we split it and ship it.
+		if strings.Contains(fileName, ".") {
+			fileName = strings.Split(fileName, ".")[0]
+		}
+
 		fullPath := fileStoragePath + fileName
 
 		f, err := os.Open(fullPath)
