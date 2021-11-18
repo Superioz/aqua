@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/superioz/aqua/internal/config"
 	"github.com/superioz/aqua/internal/metrics"
+	"github.com/superioz/aqua/internal/mime"
 	"github.com/superioz/aqua/internal/storage"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
@@ -20,33 +21,13 @@ const (
 )
 
 var (
-	// validMimeTypes is a whitelist of all supported
-	// mime types. Taken from https://developer.mozilla.org/
-	validMimeTypes = []string{
-		"application/pdf",
-		"application/json",
-		"application/gzip",
-		"application/vnd.rar",
-		"application/zip",
-		"application/x-7z-compressed",
-		"image/png",
-		"image/jpeg",
-		"image/gif",
-		"image/svg+xml",
-		"text/csv",
-		"text/plain",
-		"audio/mpeg",
-		"audio/ogg",
-		"audio/opus",
-		"audio/webm",
-		"video/mp4",
-		"video/mpeg",
-		"video/webm",
-	}
-
 	emptyRequestMetadata = &RequestMetadata{Expiration: storage.ExpireNever}
 )
 
+// TODO when accessing: `/N2YwODUx.mp4` => `/N2YwODUx`
+
+// RequestFormFile is the metadata we get from the file
+// which is requested to be uploaded.
 type RequestFormFile struct {
 	File          multipart.File
 	ContentType   string
@@ -116,13 +97,13 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		c.Status(http.StatusLengthRequired)
 		return
 	}
-	if c.Request.ContentLength > 50*SizeMegaByte {
+	if c.Request.ContentLength > int64(env.IntOrDefault("FILE_MAX_SIZE", 100))*SizeMegaByte {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"msg": "content size must not exceed 50mb"})
 		return
 	}
 
 	ct := getContentType(file)
-	if !isContentTypeValid(ct) {
+	if !mime.IsValid(ct) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "content type of file is not valid"})
 		return
 	}
@@ -144,7 +125,13 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	defer of.Close()
 
 	metadata := getMetadata(form)
-	sf, err := h.FileStorage.StoreFile(of, metadata.Expiration)
+	rff := &RequestFormFile{
+		File:          of,
+		ContentType:   ct,
+		ContentLength: c.Request.ContentLength,
+	}
+
+	sf, err := h.FileStorage.StoreFile(rff, metadata.Expiration)
 	if err != nil {
 		klog.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "could not store file"})
@@ -186,15 +173,6 @@ func getContentType(f *multipart.FileHeader) string {
 		c = strings.Split(c, ",")[0]
 	}
 	return c
-}
-
-func isContentTypeValid(ct string) bool {
-	for _, mt := range validMimeTypes {
-		if mt == ct {
-			return true
-		}
-	}
-	return false
 }
 
 func getToken(c *gin.Context) string {

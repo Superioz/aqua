@@ -2,12 +2,15 @@ package storage
 
 import (
 	"io"
-	"mime/multipart"
 	"os"
 )
 
 type FileSystem interface {
-	CreateFile(mf multipart.File, name string) (bool, error)
+	// CreateFile writes the content of given reader to a file
+	// with given name.
+	// Always returns if the file was partly written to disk.
+	CreateFile(r io.Reader, name string) (bool, error)
+	
 	DeleteFile(id string) error
 	GetFile(id string) (*os.File, error)
 	Exists(id string) (bool, error)
@@ -17,7 +20,7 @@ type LocalFileSystem struct {
 	FolderPath string
 }
 
-func (l LocalFileSystem) CreateFile(mf multipart.File, name string) (bool, error) {
+func (l LocalFileSystem) CreateFile(r io.Reader, name string) (bool, error) {
 	err := os.MkdirAll(l.FolderPath, os.ModePerm)
 	if err != nil {
 		return false, err
@@ -31,7 +34,7 @@ func (l LocalFileSystem) CreateFile(mf multipart.File, name string) (bool, error
 
 	// use io.Copy so that we don't have to load all the image into the memory.
 	// they get copied in smaller 32kb chunks.
-	_, err = io.Copy(f, mf)
+	_, err = io.Copy(f, r)
 	if err != nil {
 		return true, err
 	}

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/superioz/aqua/internal/handler"
 	"github.com/superioz/aqua/internal/metrics"
 	"github.com/superioz/aqua/pkg/env"
 	"k8s.io/klog"
-	"mime/multipart"
 	"strings"
 	"time"
 
@@ -26,6 +26,8 @@ type StoredFile struct {
 	Id         string
 	UploadedAt int64
 	ExpiresAt  int64
+	MimeType   string
+	Size       int64
 }
 
 func (sf *StoredFile) String() string {
@@ -100,13 +102,13 @@ func (fs *FileStorage) Cleanup() error {
 	return nil
 }
 
-func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFile, error) {
+func (fs *FileStorage) StoreFile(rff *handler.RequestFormFile, expiration int64) (*StoredFile, error) {
 	name, err := getRandomFileName(env.IntOrDefault("FILE_NAME_LENGTH", 8))
 	if err != nil {
 		return nil, errors.New("could not generate random name")
 	}
 
-	_, err = fs.fileSystem.CreateFile(of, name)
+	_, err = fs.fileSystem.CreateFile(rff.File, name)
 	if err != nil {
 		klog.Error(err)
 		return nil, errors.New("could not save file to system")
@@ -122,6 +124,8 @@ func (fs *FileStorage) StoreFile(of multipart.File, expiration int64) (*StoredFi
 		Id:         name,
 		UploadedAt: currentTime,
 		ExpiresAt:  expAt,
+		MimeType:   rff.ContentType,
+		Size:       rff.ContentLength,
 	}
 
 	// write to meta database

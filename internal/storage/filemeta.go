@@ -48,7 +48,9 @@ func (s *SqliteFileMetaDatabase) Connect() error {
 	_, err = db.Exec(`create table if not exists files (
 		id text not null primary key, 
 		uploaded_at integer,
-		expires_at integer
+		expires_at integer,
+		mime_type varchar,
+		size integer
 	);`)
 	if err != nil {
 		return err
@@ -63,13 +65,13 @@ func (s *SqliteFileMetaDatabase) WriteFile(sf *StoredFile) error {
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare(`insert into files(id, uploaded_at, expires_at) values(?, ?, ?)`)
+	stmt, err := db.Prepare(`insert into files(id, uploaded_at, expires_at, mime_type, size) values(?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(sf.Id, sf.UploadedAt, sf.ExpiresAt)
+	_, err = stmt.Exec(sf.Id, sf.UploadedAt, sf.ExpiresAt, sf.MimeType, sf.Size)
 	if err != nil {
 		return err
 	}
@@ -116,17 +118,9 @@ func (s *SqliteFileMetaDatabase) GetFile(id string) (*StoredFile, error) {
 		return nil, nil
 	}
 
-	var uploadedAt int
-	var expiresAt int
-
-	err = rows.Scan(&id, &uploadedAt, &expiresAt)
+	sf, err := getFromRows(rows)
 	if err != nil {
 		return nil, err
-	}
-	sf := &StoredFile{
-		Id:         id,
-		UploadedAt: int64(uploadedAt),
-		ExpiresAt:  int64(expiresAt),
 	}
 	return sf, nil
 }
@@ -146,19 +140,11 @@ func (s *SqliteFileMetaDatabase) GetAllFiles() ([]*StoredFile, error) {
 
 	var sfs []*StoredFile
 	for rows.Next() {
-		var id string
-		var uploadedAt int
-		var expiresAt int
-
-		err = rows.Scan(&id, &uploadedAt, &expiresAt)
+		sf, err := getFromRows(rows)
 		if err != nil {
 			return nil, err
 		}
-		sf := &StoredFile{
-			Id:         id,
-			UploadedAt: int64(uploadedAt),
-			ExpiresAt:  int64(expiresAt),
-		}
+
 		sfs = append(sfs, sf)
 	}
 	err = rows.Err()
@@ -190,19 +176,11 @@ func (s *SqliteFileMetaDatabase) GetAllExpired() ([]*StoredFile, error) {
 
 	var sfs []*StoredFile
 	for rows.Next() {
-		var id string
-		var uploadedAt int
-		var expiresAt int
-
-		err = rows.Scan(&id, &uploadedAt, &expiresAt)
+		sf, err := getFromRows(rows)
 		if err != nil {
 			return nil, err
 		}
-		sf := &StoredFile{
-			Id:         id,
-			UploadedAt: int64(uploadedAt),
-			ExpiresAt:  int64(expiresAt),
-		}
+
 		sfs = append(sfs, sf)
 	}
 	err = rows.Err()
@@ -210,4 +188,25 @@ func (s *SqliteFileMetaDatabase) GetAllExpired() ([]*StoredFile, error) {
 		return nil, err
 	}
 	return sfs, nil
+}
+
+func getFromRows(rows *sql.Rows) (*StoredFile, error) {
+	var id string
+	var uploadedAt int
+	var expiresAt int
+	var mimeType string
+	var size int
+
+	err := rows.Scan(&id, &uploadedAt, &expiresAt, &mimeType, &size)
+	if err != nil {
+		return nil, err
+	}
+	sf := &StoredFile{
+		Id:         id,
+		UploadedAt: int64(uploadedAt),
+		ExpiresAt:  int64(expiresAt),
+		MimeType:   mimeType,
+		Size:       int64(size),
+	}
+	return sf, nil
 }
